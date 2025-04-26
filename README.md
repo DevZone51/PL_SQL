@@ -9,7 +9,7 @@ select item, loc, dept, (DBMS_RANDOM.value(5000,50000)), round(DBMS_RANDOM.value
 
 The error ORA-01536 was caused because tablespace exceeded the amount provided for the Worspace 
 
-In order to fix this , the original script was replaced by to commit in chunks of 10K registers
+In order to fix this , the original script was replaced by to commit in chunks of 10K, 1K and 100 registers .
 
           BEGIN
             FOR i IN 1..10 LOOP
@@ -23,4 +23,3 @@ In order to fix this , the original script was replaced by to commit in chunks o
             END LOOP;
           END;
 
-..after raising the same error again it was executed again this time to commit for each 1K registers in the WHERE condition and again for 100 registers.
