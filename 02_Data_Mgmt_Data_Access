@@ -1,0 +1,48 @@
+2. Your suggestion for table data management and data access considering the application usage, for example, partition...
+
+ A)  Table Partitioning Strategy
+
+Considering that most users will access data by loc (store/warehouse), the best candidate for partitioning is:
+Partition by loc (e.g. RANGE) and subpartition by DEPT
+
+- Improve query performance by reducing I/O (partition pruning).
+- Improve concurrency by reducing contention.
+- Enable easier maintenance, e.g., loading data per location or archiving old snapshots.
+
+CREATE TABLE item_loc_soh_part
+  (
+     ITEM VARCHAR2(25) NOT NULL ENABLE,
+     LOC  NUMBER(10,0) NOT NULL ENABLE,
+     DEPT NUMBER(4,0) NOT NULL ENABLE,
+     UNIT_COST NUMBER(20,4) NOT NULL ENABLE,
+     STOCK_ON_HAND NUMBER(12,4) NOT NULL ENABLE
+  )
+PARTITION BY RANGE (loc)
+  INTERVAL (1)
+  SUBPARTITION BY HASH (dept)
+  SUBPARTITIONS 8
+(
+  PARTITION loc_001 VALUES LESS THAN (2),
+  PARTITION loc_002 VALUES LESS THAN (3),
+  PARTITION loc_003 VALUES LESS THAN (4)
+)
+;
+
+
+
+B) Indexing for Query Speed
+with partitioning local indexing  will boost  performance:
+Example:
+CREATE INDEX idx_loc_dept ON item_loc_soh (loc, dept) LOCAL;
+Use local indexes so they align with partitions and improve partition-wise operations.
+
+
+C) Data Access Control
+Considering the assumption that users only access by associated dept we can consider using Virtual Private Database (VPD) or Oracle RLS you
+can restrict rows dynamically by user/dept based on users's sys context .
+
+
+This way, Oracle Virtual Private Database (VPD) enables dynamically add a WHERE clause in any SQL statement that a user executes based
+for example in the departament the user is associated based on  table USER_DEPT (item 5).
+
+'dept IN (SELECT dept FROM user_dept WHERE username = SYS_CONTEXT(''USERENV'', ''SESSION_USER''))';

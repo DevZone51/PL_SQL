@@ -1,0 +1,9 @@
+11. Please have a look into the AWR report (AWR.html) in attachment and let us know what is the problem
+that the AWR is highlighting and potential solution.
+
+Upon reviewing the AWR Report, the section 'Top 10 Foreground Events by Total Wait Time' shows the event 'resmgr:cpu quantum' 
+consuming 83% of DB Time, which indicates that CPU contention (with only 8 CPUs currently available) is a major performance issue for the database.
+Considering this, I would:
+
+a) Review and tune the major SQL statements listed in the 'SQL Statistics' section to minimize CPU impact; and
+b) If step (a) is not sufficient, recommend scaling up the server by adding more CPUs."

@@ -1,0 +1,32 @@
+9. Looking into the following explain plan what should be your recommendation and implementation to improve the existing data model.
+Please share your solution in sql and the corresponding explain plan of that solution. Please take in consideration the way that user
+will use the app.
+```sql
+
+ Plan Hash Value  : 1697218418
+
+------------------------------------------------------------------------------
+| Id  | Operation           | Name         | Rows | Bytes | Cost  | Time       |
+------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT    |              | 100019 | 40760 | 10840 | 00:00:03 |
+| * 1 |   TABLE ACCESS FULL | ITEM_LOC_SOH | 100019 | 40760 | 10840 | 00:00:03 |
+------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+------------------------------------------
+* 1 - filter("LOC"=652 AND "DEPT"=68)
+
+
+Notes
+-----
+- Dynamic sampling used for this statement ( level = 2 )
+---------------------------------------------------------------------------------
+
+
+***  == RECOMMENDED SOLUTION == ***
+
+Explain plan above identifies a FULL TABLE SCAN on ITEM_LOC_SOH table with a high cost of 10840 for 100K registers which impact performance
+to execute queries and filtering by LOC and DEPT. This situation should be sorted out with the approach suggested on question 01 where were created indexes for columns
+DEPT and LOC on table ITEM_LOCK_SOH ( script 01_DDL_Index_Constraints.sql).
+Additionaly, was created partitions for LOC and subpartitions by DEPT
+resulted from the question 02 which will significantly optimize query performance and especially under high concurrency and large data volume.
