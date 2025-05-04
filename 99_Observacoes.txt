@@ -1,0 +1,110 @@
+Observacoes:
+
+1) Total espaco da tablespace criado (APEX_BIGFILE_INSTANCE_TBS) no Oracle Apex é somente 20 Mb ;
+
+2) Com script de popular para item (100K registros) e lojas (1K) e com criacao de particoes e subpartioes na item_loc_soh para efeitos
+de perfomance e definindo chaves primarias, chaves estrangeiras  o uso vai para 18.3Mb sem dado algum na item_loc_soh para aplicar
+ definir solucao para os requisitos das questoes 2,3.
+
+SELECT tablespace_name, sum(bytes) / 1024/1024 as "Total MB used"
+ FROM user_segments
+GROUP BY tablespace_name;
+
+3) Com isto, fica inviabilizado a execucao do script dado que faz o cartesiano loc x item. Isso causa para uma unica loja o estouro de espaco na Workspace
+com erro: "ORA-01536: space quota exceeded for tablespace 'APEX_BIGFILE_INSTANCE_TBS'
+
+4) Apos dropar a tabela vazia da item_loc_soh com particoes(por loc) e subparticao por dept o uso total vai para 2MB
+
+5) Ao re-criar a tabela item_loc_soh sem particao e sem indices , o uso continua em 2MB
+
+6) Ao inserir o script para popular a tabela ITEM_LOC_SOH tem que redefinir o script original para fazer commit parciais a cada 1000 registros , ele preenche apenas 753K registros
+   ate atingir o limite da Tablespace de 25Mb no Oracle Apex.
+
+BEGIN
+  FOR i IN 1..10000 LOOP
+    INSERT INTO item_loc_soh (item, loc, dept, unit_cost, stock_on_hand)
+    SELECT item, loc, dept,
+           (DBMS_RANDOM.value(5000, 50000)),
+           ROUND(DBMS_RANDOM.value(1000, 100000))
+    FROM item im, loc loc
+    WHERE ROWNUM <= 1000
+      AND NOT EXISTS ( SELECT 1
+                         FROM ITEM_LOC_SOH ils
+                        WHERE ils.item = im.item
+                           AND ils.loc = loc.loc);
+    COMMIT;
+  END LOOP;
+END;
+-------
+
+7) Porem , essa abordagem do item 6 ao atingir o limite da tablespace , nao permite definir nenhuma constraint como a chave primaria
+   que ja causa o erro novamente mostrado no item 3)
+
+8)Assim faz se novamente um truncate na ITEM_LOC_SOH e redefine-se novamente todas constraints (pk,fk,idx) para ITEM_LOC_SOH definidas no script 01_DML_Index_Constraints.sql
+ novamente o script to item 6. Ao final consome-se 2,3Mb do tablespace
+
+9) Ao fazer a re-execucao do script de populacao do item 6, cabem apenas 226K registros, que eh o que mantem-se.
+
+
+--- sql
+INSERT INTO item_loc_soh (item, loc, dept, unit_cost, stock_on_hand)
+    SELECT item, loc, dept,
+           (DBMS_RANDOM.value(5000, 50000)),
+           ROUND(DBMS_RANDOM.value(1000, 100000))
+    FROM item, loc
+    WHERE loc=103;
+
+---
+  drop table item_loc_soh;
+---
+  SELECT tablespace_name, sum(bytes) / 1024/1024 as "Total MB used"
+FROM user_segments
+group by tablespace_name;
+
+create table item_loc_soh(
+item varchar2(25) not null,
+loc number(10) not null,
+dept number(4) not null,
+unit_cost number(20,4) not null,
+stock_on_hand number(12,4) not null
+);
+
+BEGIN
+  FOR i IN 1..10000 LOOP
+    INSERT INTO item_loc_soh (item, loc, dept, unit_cost, stock_on_hand)
+    SELECT item, loc, dept,
+           (DBMS_RANDOM.value(5000, 50000)),
+           ROUND(DBMS_RANDOM.value(1000, 100000))
+    FROM item im, loc loc
+    WHERE ROWNUM <= 1000
+      AND NOT EXISTS ( SELECT 1
+                         FROM ITEM_LOC_SOH ils
+                        WHERE ils.item = im.item
+                           AND ils.loc = loc.loc);
+    COMMIT;
+  END LOOP;
+END;
+
+select count(1) from item_loc_soh;
+
+ALTER TABLE item_loc_soh
+ADD CONSTRAINT pk_item_loc_soh PRIMARY KEY (item, loc);
+
+---
+truncate table item_loc_soh;
+
+--
+ALTER TABLE item_loc_soh
+ADD CONSTRAINT pk_item_loc_soh PRIMARY KEY (item, loc);
+--
+ALTER TABLE item_loc_soh
+ADD CONSTRAINT fk_loc FOREIGN KEY (loc)
+REFERENCES loc(loc);
+--
+ALTER TABLE item_loc_soh
+ADD CONSTRAINT fk_dept FOREIGN KEY (dept)
+REFERENCES dept(dept);
+--
+CREATE INDEX idx_item_loc_soh_loc ON item_loc_soh (loc);
+--
+CREATE INDEX idx_item_loc_soh_dept ON item_loc_soh (dept);
